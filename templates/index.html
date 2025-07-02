@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JarvisVision</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #0ff;
+            font-family: 'Segoe UI', sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            padding: 40px;
+        }
+
+        input[type="file"], textarea, button {
+            margin: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        textarea {
+            width: 80%;
+            height: 40px;
+        }
+
+        #conversation {
+            background: #1a1a1a;
+            color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .message {
+            text-align: left;
+            margin-bottom: 12px;
+        }
+
+        .user { color: #00ffff; }
+        .bot { color: #fff; }
+
+        .mic-btn {
+            background: #222;
+            color: #ff69b4;
+            font-size: 20px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 JarvisVision</h1>
+        <form id="imageForm" enctype="multipart/form-data">
+            <p>Select Image:</p>
+            <input type="file" name="image" id="imageInput" required><br>
+            <p>Ask something about the image:</p>
+            <textarea name="question" id="questionInput" placeholder="What do you want to know?"></textarea><br>
+
+            <button type="submit">Submit</button>
+            <button type="button" class="mic-btn" onclick="startListening()">🎤 Speak</button>
+            <button type="button" onclick="speakLastResponse()">🔊 Speak</button>
+        </form>
+
+        <div id="conversation">
+            <h3>💬 Conversation</h3>
+            <div id="chatLog"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById("imageForm");
+        const questionInput = document.getElementById("questionInput");
+        const imageInput = document.getElementById("imageInput");
+        const chatLog = document.getElementById("chatLog");
+
+        let lastResponse = "";
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+
+            const imageFile = imageInput.files[0];
+            const question = questionInput.value.trim();
+
+            if (!imageFile || !question) return;
+
+            const formData = new FormData();
+            formData.append("image", imageFile);
+            formData.append("question", question);
+
+            appendMessage("You", question, "user");
+
+            const res = await fetch("/ask-about-image", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            lastResponse = data.result || data.error;
+            appendMessage("Jarvis", lastResponse, "bot");
+        };
+
+        function appendMessage(sender, text, cls) {
+            const div = document.createElement("div");
+            div.classList.add("message", cls);
+            div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+            chatLog.appendChild(div);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        function speakLastResponse() {
+            fetch("/speak", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: lastResponse })
+            });
+        }
+
+        function startListening() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = "en-US";
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.start();
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                questionInput.value = transcript;
+            };
+            recognition.onerror = (event) => {
+                alert("Voice recognition error: " + event.error);
+            };
+        }
+    </script>
+</body>
+</html>
+
+
